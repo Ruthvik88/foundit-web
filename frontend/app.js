@@ -3,7 +3,7 @@
 //  Connects to Express backend via fetch() API calls
 // ═══════════════════════════════════════════════════════════════
 
-const API_BASE = 'http://localhost:3000'; // Replaced by production URL on deploy
+const API_BASE = 'https://foundit-web.onrender.com';
 
 // ── State ────────────────────────────────────────────────────
 let items = [];
