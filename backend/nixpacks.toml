@@ -1,4 +1,0 @@
-[
-    phases.build
-]
-cmds = ["npm ci", "npm rebuild bcrypt --build-from-source"]
