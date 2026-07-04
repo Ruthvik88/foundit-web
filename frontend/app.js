@@ -245,6 +245,51 @@ function renderProfile() {
         profileAvatar.alt = currentUser.name || 'Student profile';
         profileAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'Student')}&background=c7d2fe&color=3730a3&size=80`;
     }
+
+    const profileMemberSince = document.getElementById('profileMemberSince');
+    if (profileMemberSince) {
+        profileMemberSince.textContent = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    // Load preferences
+    document.querySelectorAll('.toggle[data-pref]').forEach(toggle => {
+        const prefName = toggle.dataset.pref;
+        const val = localStorage.getItem(`cc_pref_${prefName}`);
+        if (val === 'false') {
+            toggle.classList.remove('active');
+        } else {
+            toggle.classList.add('active'); // default true
+        }
+    });
+
+    // Render Watchlist
+    const watchlistGrid = document.getElementById('watchlistGrid');
+    if (watchlistGrid) {
+        let watchlist = [];
+        try { watchlist = JSON.parse(localStorage.getItem('cc_watchlist')) || []; } catch(e){}
+        
+        if (watchlist.length === 0) {
+            watchlistGrid.innerHTML = '<p>No items in your watchlist yet.</p>';
+        } else {
+            watchlistGrid.innerHTML = '';
+            watchlist.forEach(id => {
+                const item = items.find(i => i.id === id);
+                if (!item) return;
+                
+                const card = document.createElement('div');
+                card.className = 'watch-card';
+                card.innerHTML = `
+                    <div class="watch-img bg-gray" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;">${item.emoji||''}</div>
+                    <div class="watch-info">
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> ${escapeHtml(item.location)}</span>
+                    </div>
+                    <button class="remove-watch-btn" data-id="${item.id}" style="border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:0.8rem;text-decoration:underline;">Remove</button>
+                `;
+                watchlistGrid.appendChild(card);
+            });
+        }
+    }
 }
 
 async function checkAuth() {
@@ -325,6 +370,12 @@ async function fetchItems() {
         items = apiItems.map(mapItem);
 
         loadingState.style.display = 'none';
+        
+        const statsSection = document.querySelector('.stats-section');
+        if (statsSection) {
+            statsSection.style.display = searchQuery.trim() ? 'none' : '';
+        }
+
         updateStats();
         updateNotificationBadge();
         renderItems();
@@ -1016,4 +1067,142 @@ function closePanel() {
 }
 
 // ── Run ──────────────────────────────────────────────────────
+function initFrontendFeatures() {
+    // 4. Preferences
+    document.querySelectorAll('.toggle[data-pref]').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const prefName = toggle.dataset.pref;
+            const isActive = toggle.classList.toggle('active');
+            localStorage.setItem(`cc_pref_${prefName}`, isActive);
+        });
+    });
+
+    // 5. Watchlist Remove Button
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-watch-btn')) {
+            const id = e.target.dataset.id;
+            let watchlist = [];
+            try { watchlist = JSON.parse(localStorage.getItem('cc_watchlist')) || []; } catch(e){}
+            watchlist = watchlist.filter(wId => wId !== id);
+            localStorage.setItem('cc_watchlist', JSON.stringify(watchlist));
+            renderProfile();
+        } else if (e.target.closest('.bookmark-btn')) {
+            // "Watch" button on item cards
+            const card = e.target.closest('.item-card') || e.target.closest('.dialog-content');
+            if (card) {
+                // Determine ID somehow. Dialog has id. Let's assume dialog for now.
+                const titleEl = card.querySelector('h2') || card.querySelector('h3');
+                if (titleEl) {
+                    const item = items.find(i => i.name === titleEl.textContent);
+                    if (item) {
+                        let watchlist = [];
+                        try { watchlist = JSON.parse(localStorage.getItem('cc_watchlist')) || []; } catch(e){}
+                        if (!watchlist.includes(item.id)) {
+                            watchlist.push(item.id);
+                            localStorage.setItem('cc_watchlist', JSON.stringify(watchlist));
+                            showToast('Added to watchlist');
+                            renderProfile();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 6. Edit Profile Form
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const editProfileForm = document.getElementById('editProfileForm');
+    if (editProfileBtn && editProfileForm) {
+        editProfileBtn.addEventListener('click', () => {
+            editProfileForm.style.display = 'block';
+            document.getElementById('editProfileNameInput').value = currentUser?.name || '';
+        });
+        document.getElementById('cancelProfileBtn').addEventListener('click', () => {
+            editProfileForm.style.display = 'none';
+        });
+        document.getElementById('saveProfileBtn').addEventListener('click', () => {
+            if (currentUser) {
+                currentUser.name = document.getElementById('editProfileNameInput').value;
+                // Update local storage payload mock (client side only)
+                let tokenStr = localStorage.getItem('cc_token');
+                if (tokenStr) {
+                    try {
+                        const token = JSON.parse(atob(tokenStr));
+                        token.name = currentUser.name;
+                        localStorage.setItem('cc_token', btoa(JSON.stringify(token)));
+                    } catch(e) {}
+                }
+                renderProfile();
+            }
+            editProfileForm.style.display = 'none';
+            showToast('Profile updated');
+        });
+    }
+
+    // 7. Notifications Claim / Schedule
+    document.addEventListener('click', (e) => {
+        if (e.target.textContent === 'Claim Item' && e.target.classList.contains('notif-action-btn')) {
+            // Find item ID from notification context
+            const notif = e.target.closest('.notification-card');
+            const p = notif.querySelector('p').textContent;
+            // Hacky match for name
+            const item = items.find(i => p.includes(i.name));
+            if (item) {
+                initiateVerification(item.id);
+            }
+        } else if (e.target.textContent === 'Schedule Pickup' && e.target.classList.contains('notif-action-btn')) {
+            showToast('Pickup scheduling coming soon!');
+        }
+    });
+
+    // 8. Notifications Tabs
+    const inboxTabs = document.querySelectorAll('.inbox-tab[data-tab]');
+    inboxTabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            inboxTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const targetTab = tab.dataset.tab;
+            document.querySelectorAll('.notification-card').forEach(card => {
+                if (targetTab === 'all' || card.dataset.tab === targetTab) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    });
+
+    // 10. Sort Form Questions
+    const reportTypeRadios = document.querySelectorAll('input[name="reportType"]');
+    reportTypeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const isLost = document.querySelector('input[name="reportType"]:checked').value === 'lost';
+            
+            // Adjust order via CSS order and flex direction
+            document.getElementById('itemNameGroup').style.order = 1;
+            document.getElementById('itemCategoryRowGroup').style.order = 2;
+            document.getElementById('itemDescGroup').style.order = 3;
+            document.getElementById('itemLocationGroup').style.order = 4;
+            
+            // Reorder Date based on type
+            const dateLabel = document.getElementById('itemDateLabel');
+            const locLabel = document.getElementById('itemLocationLabel');
+            const vQ = document.getElementById('verificationQuestion');
+            
+            if (isLost) {
+                // itemDate is in row with category, so it stays ordered with category
+                locLabel.textContent = 'Where did you lose it?';
+                dateLabel.textContent = 'When?';
+                vQ.placeholder = 'e.g. What color is the case? What stickers are on it?';
+            } else {
+                locLabel.textContent = 'Where did you find it?';
+                dateLabel.textContent = 'When did you find it?';
+                vQ.placeholder = 'e.g. What brand is it? What\\'s the serial number area like?';
+            }
+        });
+    });
+}
+
+initFrontendFeatures();
 init();
