@@ -1198,8 +1198,7 @@ function initFrontendFeatures() {
             } else {
                 locLabel.textContent = 'Where did you find it?';
                 dateLabel.textContent = 'When did you find it?';
-                vQ.placeholder = 'e.g. What brand is it? What\\'s the serial number area like?';
-            }
+              vQ.placeholder = "e.g. What brand is it? What's the serial number area like?"            }
         });
     });
 }
