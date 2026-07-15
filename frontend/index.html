@@ -22,8 +22,7 @@
             <nav class="main-nav">
                 <a href="#" class="nav-link active" data-nav="main">Home</a>
                 <a href="#" class="nav-link" id="navReportBtn">Report</a>
-                <a href="#" class="nav-link" data-nav="review-claims">Review Claims</a>
-                <a href="#" class="nav-link" data-nav="verification">Verify Form</a>
+                <a href="#" class="nav-link" data-nav="review-claims" id="navReviewClaimsBtn" style="display: none;">Review Claims</a>
             </nav>
             <div class="header-right">
                 <button class="icon-btn" aria-label="Notifications" id="notificationBellBtn" style="position: relative;">
@@ -94,13 +93,30 @@
                     <button class="cat-btn" data-cat="accessories"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Accessories</button>
                     <button class="cat-btn" data-cat="keys"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg> Keys & IDs</button>
                 </div>
-                <button class="filter-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg> Filters</button>
+                <div class="advanced-filters" style="display: flex; gap: 12px; margin-top: 16px; width: 100%; flex-wrap: wrap; align-items: center;">
+                    <div class="search-bar location-filter" style="margin: 0; min-width: 200px; flex: 1;">
+                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        <input type="text" id="locationFilter" placeholder="Filter by location...">
+                    </div>
+                    <div class="status-filters" id="statusFilter" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="cat-btn active" data-status="active">Active</button>
+                        <button class="cat-btn" data-status="all">All</button>
+                        <button class="cat-btn" data-status="claimed">Claimed</button>
+                        <button class="cat-btn" data-status="expired">Expired</button>
+                    </div>
+                </div>
+                <button class="filter-btn" style="margin-top: 16px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg> Filters</button>
             </section>
 
             <!-- Main Content -->
             <main class="content-grid" id="itemsGrid">
                 <!-- Items injected by JS -->
             </main>
+
+            <!-- Load More Button -->
+            <div style="text-align: center; margin: 2rem 0;">
+                <button id="loadMoreBtn" class="load-more-btn" style="display: none;">Load more</button>
+            </div>
 
             <!-- Loading State -->
             <div class="loading-state" id="loadingState" style="display: none;">
@@ -349,6 +365,16 @@
                             </div>
                         </div>
                         <div class="toggle active" data-pref="location_services"></div>
+                    </div>
+                    <div class="pref-item">
+                        <div class="pref-info">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                            <div>
+                                <strong>Dark Mode</strong>
+                                <span>Switch to dark theme</span>
+                            </div>
+                        </div>
+                        <div class="toggle" data-pref="darkmode"></div>
                     </div>
                 </div>
 

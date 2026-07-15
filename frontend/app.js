@@ -10,6 +10,12 @@ let items = [];
 let activeTab = 'lost';
 let activeCategory = 'all';
 let searchQuery = '';
+let activeLocation = '';
+let activeStatus = 'active';
+let currentOffset = 0;
+const PAGE_SIZE = 12;
+let hasMore = false;
+let isLoadingMore = false;
 let selectedImageFile = null;
 let activeDialogItemId = null;
 let activeVerifyItemId = null;
@@ -352,22 +358,51 @@ function closeAuthModal() {
 }
 
 // ── API Calls ────────────────────────────────────────────────
-async function fetchItems() {
+async function fetchItems(append = false) {
     try {
-        itemsGrid.style.display = 'none';
-        emptyState.style.display = 'none';
-        loadingState.style.display = 'block';
+        if (!append) {
+            itemsGrid.style.display = 'none';
+            emptyState.style.display = 'none';
+            loadingState.style.display = 'block';
+            currentOffset = 0;
+        } else {
+            isLoadingMore = true;
+            const loadBtn = document.getElementById('loadMoreBtn');
+            if (loadBtn) loadBtn.textContent = 'Loading...';
+        }
 
         const params = new URLSearchParams();
         if (activeTab !== 'all') params.set('type', activeTab);
         if (activeCategory !== 'all') params.set('category', activeCategory);
         if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        if (activeLocation.trim()) params.set('location', activeLocation.trim());
+        if (activeStatus !== 'active' && activeStatus !== 'all') params.set('status', activeStatus);
+        
+        params.set('limit', PAGE_SIZE);
+        params.set('offset', currentOffset);
 
         const res = await fetch(`${API_BASE}/api/items?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch items');
 
-        const apiItems = await res.json();
-        items = apiItems.map(mapItem);
+        const apiResponse = await res.json();
+        
+        // Handle pagination response format { items, total, hasMore }
+        let apiItems = [];
+        if (apiResponse && apiResponse.items) {
+            apiItems = apiResponse.items;
+            hasMore = apiResponse.hasMore;
+        } else if (Array.isArray(apiResponse)) {
+            apiItems = apiResponse;
+            hasMore = false; // Fallback if backend not updated yet
+        }
+
+        const mappedItems = apiItems.map(mapItem);
+
+        if (append) {
+            items = [...items, ...mappedItems];
+        } else {
+            items = mappedItems;
+        }
 
         loadingState.style.display = 'none';
         
@@ -379,12 +414,27 @@ async function fetchItems() {
         updateStats();
         updateNotificationBadge();
         renderItems();
+        
+        const loadBtn = document.getElementById('loadMoreBtn');
+        if (loadBtn) {
+            if (hasMore) {
+                loadBtn.style.display = 'inline-block';
+                loadBtn.textContent = 'Load more';
+            } else {
+                loadBtn.style.display = 'none';
+            }
+        }
+        isLoadingMore = false;
     } catch (err) {
         console.error('Fetch items error:', err);
         loadingState.style.display = 'none';
-        items = [];
+        if (!append) items = [];
         renderItems();
         showToast('Failed to load items. Is the server running?');
+        isLoadingMore = false;
+        
+        const loadBtn = document.getElementById('loadMoreBtn');
+        if (loadBtn) loadBtn.textContent = 'Load more';
     }
 }
 
@@ -420,6 +470,9 @@ async function claimItem(itemId, answer) {
 
 // ── Initialize ───────────────────────────────────────────────
 async function init() {
+    if (localStorage.getItem('cc_pref_darkmode') === 'true') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
     await checkAuth();
     setupEventListeners();
     fetchItems();
@@ -555,6 +608,30 @@ function setupEventListeners() {
         });
     });
 
+    // Preferences Toggles
+    document.querySelectorAll('.toggle[data-pref]').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const prefName = toggle.dataset.pref;
+            const isNowActive = !toggle.classList.contains('active');
+            
+            if (isNowActive) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+            
+            localStorage.setItem(`cc_pref_${prefName}`, isNowActive);
+            
+            if (prefName === 'darkmode') {
+                if (isNowActive) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                }
+            }
+        });
+    });
+
     // Categories
     catBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -568,11 +645,53 @@ function setupEventListeners() {
     // Search with debounce (300ms)
     searchInput.addEventListener('input', (e) => {
         searchQuery = e.target.value;
+        if (!searchQuery.trim()) {
+            activeLocation = '';
+            const locInput = document.getElementById('locationFilter');
+            if (locInput) locInput.value = '';
+        }
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             fetchItems();
         }, 300);
     });
+
+    // Location Filter with debounce (300ms)
+    const locationFilter = document.getElementById('locationFilter');
+    if (locationFilter) {
+        locationFilter.addEventListener('input', (e) => {
+            activeLocation = e.target.value;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchItems();
+            }, 300);
+        });
+    }
+
+    // Status Filter
+    const statusBtns = document.querySelectorAll('#statusFilter .cat-btn');
+    if (statusBtns.length > 0) {
+        statusBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                statusBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeStatus = btn.dataset.status;
+                fetchItems();
+            });
+        });
+    }
+
+    // Load More Button
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+            if (hasMore && !isLoadingMore) {
+                currentOffset += PAGE_SIZE;
+                fetchItems(true);
+            }
+        });
+    }
+
 
     // Form Panel — require auth
     fabBtn.addEventListener('click', () => {
@@ -903,6 +1022,16 @@ function showView(viewName) {
     [mainView, verificationView, successView, profileView, activityView, reviewClaimsView, impactView].forEach(view => {
         if (view) view.classList.remove('active-view');
     });
+    
+    // Dynamically show/hide Review Claims in top nav
+    const reviewClaimsLink = document.getElementById('navReviewClaimsBtn');
+    if (reviewClaimsLink) {
+        if (viewName === 'activity' || viewName === 'review-claims') {
+            reviewClaimsLink.style.display = 'block';
+        } else {
+            reviewClaimsLink.style.display = 'none';
+        }
+    }
     
     // Update active state in nav
     document.querySelectorAll('.nav-link[data-nav]').forEach(link => {

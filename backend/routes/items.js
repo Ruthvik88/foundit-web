@@ -30,41 +30,62 @@ const PUBLIC_COLUMNS = `
 // GET /api/items
 router.get('/', async (req, res) => {
   try {
-    const { type, category, q, status = 'active' } = req.query;
+    const { type, category, q, status = 'active', location, limit = 12, offset = 0 } = req.query;
 
-    let query = `SELECT ${PUBLIC_COLUMNS} FROM items WHERE 1=1`;
+    let baseQuery = `FROM items WHERE 1=1`;
     const params = [];
     let paramIndex = 1;
 
     // Filter by status
-    if (status !== 'all') {
-      query += ` AND status = $${paramIndex++}`;
+    if (status && status !== 'all') {
+      baseQuery += ` AND status = $${paramIndex++}`;
       params.push(status);
     }
 
     // Filter by type (lost / found)
     if (type && type !== 'all') {
-      query += ` AND type = $${paramIndex++}`;
+      baseQuery += ` AND type = $${paramIndex++}`;
       params.push(type);
     }
 
     // Filter by category
     if (category && category !== 'all') {
-      query += ` AND category = $${paramIndex++}`;
+      baseQuery += ` AND category = $${paramIndex++}`;
       params.push(category);
     }
 
     // Full-text search on title + description
     if (q && q.trim()) {
-      query += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex} OR location ILIKE $${paramIndex})`;
+      baseQuery += ` AND (title ILIKE $${paramIndex} OR description ILIKE $${paramIndex} OR location ILIKE $${paramIndex})`;
       params.push(`%${q.trim()}%`);
       paramIndex++;
     }
 
-    query += ' ORDER BY created_at DESC';
+    // Location filter
+    if (location && location.trim()) {
+      baseQuery += ` AND location ILIKE $${paramIndex}`;
+      params.push(`%${location.trim()}%`);
+      paramIndex++;
+    }
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    // First get the total count for pagination
+    const countQuery = `SELECT COUNT(*) ${baseQuery}`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Then get the items with pagination
+    let itemsQuery = `SELECT ${PUBLIC_COLUMNS} ${baseQuery} ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    params.push(parseInt(limit, 10));
+    params.push(parseInt(offset, 10));
+
+    const result = await pool.query(itemsQuery, params);
+    const hasMore = (parseInt(offset, 10) + parseInt(limit, 10)) < total;
+
+    res.json({
+        items: result.rows,
+        total: total,
+        hasMore: hasMore
+    });
   } catch (err) {
     console.error('GET /api/items error:', err);
     res.status(500).json({ error: 'Failed to fetch items' });
@@ -214,6 +235,51 @@ router.patch('/:id/claim', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('PATCH /api/items/:id/claim error:', err);
     res.status(500).json({ error: 'Failed to process claim' });
+  }
+});
+
+// DELETE /api/items/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin key' });
+    }
+
+    const result = await pool.query('DELETE FROM items WHERE id = $1 RETURNING id', [req.params.id]);
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DELETE /api/items/:id error:', err);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+// PATCH /api/items/:id/expire
+router.patch('/:id/expire', async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin key' });
+    }
+
+    const result = await pool.query(
+      "UPDATE items SET status = 'expired' WHERE id = $1 RETURNING *",
+      [req.params.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    res.json({ success: true, item: result.rows[0] });
+  } catch (err) {
+    console.error('PATCH /api/items/:id/expire error:', err);
+    res.status(500).json({ error: 'Failed to expire item' });
   }
 });
 
