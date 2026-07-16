@@ -1197,14 +1197,8 @@ function closePanel() {
 
 // ── Run ──────────────────────────────────────────────────────
 function initFrontendFeatures() {
-    // 4. Preferences
-    document.querySelectorAll('.toggle[data-pref]').forEach(toggle => {
-        toggle.addEventListener('click', () => {
-            const prefName = toggle.dataset.pref;
-            const isActive = toggle.classList.toggle('active');
-            localStorage.setItem(`cc_pref_${prefName}`, isActive);
-        });
-    });
+    // 4. Preferences - Handled in setupEventListeners()
+
 
     // 5. Watchlist Remove Button
     document.addEventListener('click', (e) => {
