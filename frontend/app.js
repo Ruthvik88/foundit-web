@@ -261,10 +261,10 @@ function renderProfile() {
     document.querySelectorAll('.toggle[data-pref]').forEach(toggle => {
         const prefName = toggle.dataset.pref;
         const val = localStorage.getItem(`cc_pref_${prefName}`);
-        if (val === 'false') {
-            toggle.classList.remove('active');
+        if (val === 'true' || (val === null && prefName !== 'darkmode')) {
+            toggle.classList.add('active'); // default true except darkmode
         } else {
-            toggle.classList.add('active'); // default true
+            toggle.classList.remove('active');
         }
     });
 
@@ -579,6 +579,33 @@ function setupEventListeners() {
         });
     });
 
+    // Upload Proof File Trigger
+    const uploadArea = document.querySelector('.upload-area');
+    const verifyProofFile = document.getElementById('verifyProofFile');
+    if (uploadArea && verifyProofFile) {
+        uploadArea.addEventListener('click', () => {
+            verifyProofFile.click();
+        });
+        verifyProofFile.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                uploadArea.querySelector('strong').textContent = fileName;
+                uploadArea.querySelector('span').textContent = 'File selected. Ready to submit.';
+            } else {
+                uploadArea.querySelector('strong').textContent = 'Click to upload or drag and drop';
+                uploadArea.querySelector('span').textContent = 'SVG, PNG, JPG or PDF (max. 5MB)';
+            }
+        });
+    }
+
+    // Notification Action Button Routing
+    document.querySelectorAll('.notif-action-btn.primary').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showView('main');
+            if (items.length > 0) openItemDialog(items[0].id);
+        });
+    });
+
     const navReportBtn = document.getElementById('navReportBtn');
     if (navReportBtn) {
         navReportBtn.addEventListener('click', (e) => {
@@ -626,7 +653,7 @@ function setupEventListeners() {
                 if (isNowActive) {
                     document.documentElement.setAttribute('data-theme', 'dark');
                 } else {
-                    document.documentElement.removeAttribute('data-theme');
+                    document.documentElement.setAttribute('data-theme', 'light');
                 }
             }
         });

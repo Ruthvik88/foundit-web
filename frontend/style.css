@@ -67,6 +67,14 @@ body {
     padding: 2rem 3vw;
 }
 
+.view-container {
+    display: none;
+}
+
+.view-container.active-view {
+    display: block;
+}
+
 /* Global Header */
 .global-header {
     background: var(--surface-solid);
@@ -2206,8 +2214,9 @@ textarea {
 }
 
 .claim-img {
-    width: 100px;
-    height: 100px;
+    width: 100%;
+    max-width: 160px;
+    height: 160px;
     border-radius: var(--radius-md);
     flex-shrink: 0;
     position: relative;
@@ -2225,6 +2234,11 @@ textarea {
 .claim-img.bg-blue {
     background: #e0f2fe;
     color: #0284c7;
+}
+
+.claim-img svg {
+    width: 48px;
+    height: 48px;
 }
 
 .claim-img .item-status {
@@ -2902,6 +2916,7 @@ textarea {
 
 .verify-input {
     width: 100%;
+    box-sizing: border-box;
     padding: 1rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
@@ -2917,6 +2932,8 @@ textarea {
 }
 
 .upload-area {
+    width: 100%;
+    box-sizing: border-box;
     border: 2px dashed var(--border);
     border-radius: var(--radius-md);
     padding: 2rem;
@@ -2959,7 +2976,8 @@ textarea {
 
 .verify-actions {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
+    align-items: center;
     gap: 1rem;
     margin-top: 2rem;
     padding-top: 2rem;
